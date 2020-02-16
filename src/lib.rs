@@ -21,6 +21,10 @@
 #![no_std]
 #![deny(missing_docs, missing_debug_implementations)]
 
+#[cfg(test)]
+#[macro_use]
+extern crate alloc;
+
 use core::iter::once;
 use core::mem;
 
@@ -102,6 +106,37 @@ pub fn linebreaks<'a>(s: &'a str) -> impl Iterator<Item = (usize, BreakOpportuni
         })
 }
 
+/// Returns an iterator over line break opportunities in the specified iterator over strings.
+pub fn linebreaks_iter<'a>(iter: impl Iterator<Item = &'a str> + Clone + 'a) -> impl Iterator<Item = (usize, BreakOpportunity)> + Clone + 'a {
+    use BreakOpportunity::{Allowed, Mandatory};
+
+    iter
+        .map(|s| s.chars())
+        .flatten()
+        .map(|c| break_property(c as u32) as u8)
+        .chain(once(eot))
+        .enumerate()
+        .scan((sot, false), |state, (i, cls)| {
+            // ZWJ is handled outside the table to reduce its size
+            let val = PAIR_TABLE[state.0 as usize][cls as usize];
+            let is_mandatory = val & MANDATORY_BREAK_BIT != 0;
+            let is_break = val & ALLOWED_BREAK_BIT != 0 && (!state.1 || is_mandatory);
+            *state = (
+                val & !(ALLOWED_BREAK_BIT | MANDATORY_BREAK_BIT),
+                cls == BreakClass::ZeroWidthJoiner as u8,
+            );
+
+            Some((i, is_break, is_mandatory))
+        })
+        .filter_map(|(i, is_break, is_mandatory)| {
+            if is_break {
+                Some((i, if is_mandatory { Mandatory } else { Allowed }))
+            } else {
+                None
+            }
+        })
+}
+
 /// Divides the string at the last index where further breaks do not depend on prior context.
 ///
 /// The trivial index at `eot` is excluded.
@@ -143,5 +178,14 @@ mod tests {
     fn it_works() {
         assert_eq!(break_property(0xA), BreakClass::LineFeed);
         assert_eq!(break_property(0xDB80), BreakClass::Surrogate);
+    }
+
+    #[test]
+    fn linebreaks_iter_test() {
+        use alloc::vec::Vec;
+
+        assert_eq!(linebreaks_iter(vec!["foo ", "bar"].into_iter()).collect::<Vec<_>>(), vec![
+            (4, BreakOpportunity::Allowed),
+            (7, BreakOpportunity::Mandatory)]);
     }
 }
