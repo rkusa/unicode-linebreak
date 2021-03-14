@@ -1,6 +1,6 @@
 [package]
 name = "unicode-linebreak"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Axel Forsman <axelsfor@gmail.com>"]
 description = "Implementation of the Unicode Line Breaking Algorithm"
 homepage = "https://github.com/axelf4/unicode-linebreak"
@@ -9,11 +9,11 @@ readme = "README.md"
 keywords = ["unicode", "text", "layout"]
 categories = ["internationalization"]
 license = "Apache-2.0"
-exclude = [".gitignore", ".travis.yml", "tests/**"]
+include = ["src/**/*", "build.rs", "LineBreak.txt"]
 edition = "2018"
 
 [build-dependencies]
-regex = "1.1.0"
+regex = "1"
 
 [badges]
 travis-ci = { repository = "axelf4/unicode-linebreak" }
